@@ -1,0 +1,55 @@
+package utils
+
+import (
+	"net/http"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+)
+
+// UserJWTAuth 前台 C 端用户 JWT 鉴权中间件
+func UserJWTAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 1. 优先从 Header 提取 "pgtoken"；若无则尝试常规 "Authorization"
+		tokenStr := c.GetHeader("pgtoken")
+		if tokenStr == "" {
+			authHeader := c.GetHeader("Authorization")
+			if authHeader != "" {
+				// 处理 "Bearer <token>" 格式
+				parts := strings.SplitN(authHeader, " ", 2)
+				if len(parts) == 2 && parts[0] == "Bearer" {
+					tokenStr = parts[1]
+				} else {
+					tokenStr = authHeader
+				}
+			}
+		}
+
+		// 2. 判断 Token 是否存在
+		if tokenStr == "" {
+			c.JSON(http.StatusOK, gin.H{
+				"code": 401,
+				"msg":  "未传入身份认证 Token (pgtoken)，请先登录",
+			})
+			c.Abort()
+			return
+		}
+
+		// 3. 解析并校验 Token 签名与有效期
+		claims, err := ParseToken(tokenStr)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"code": 401,
+				"msg":  "Token 已过期或无效，请重新登录",
+			})
+			c.Abort()
+			return
+		}
+
+		// 4. 将解析出的 Claims/UserID 写入 Context，供后续 Controller 随时调用
+		c.Set("user_id", claims.UserId)
+		c.Set("mobile", claims.Mobile)
+
+		c.Next()
+	}
+}
