@@ -45,6 +45,48 @@ type CouponListRequest struct {
 	Status     int    `json:"status" form:"status"`
 }
 
+// MemberCouponListRequest 会员我的优惠券列表请求参数
+type MemberCouponListRequest struct {
+	Limit int    `json:"limit" form:"limit"`
+	Page  int    `json:"page" form:"page"`
+	Order string `json:"order" form:"order"`
+}
+
+// GetMyCouponListHandler 会员“我的优惠券”接口：展示当前会员已领取（兑换成功）的优惠券，连表票根展示兑换记录
+func GetMyCouponListHandler(c *gin.Context) {
+	userIDValue, exists := c.Get("userId")
+	userID, ok := userIDValue.(int64)
+	if !exists || !ok || userID <= 0 {
+		c.JSON(http.StatusOK, gin.H{"code": 401, "message": "请先登录"})
+		return
+	}
+
+	var req MemberCouponListRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, gin.H{"code": 400, "message": "参数错误", "data": err.Error()})
+		return
+	}
+	if req.Limit <= 0 {
+		req.Limit = 10
+	}
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+
+	list := models.GetMemberCouponList(req.Limit, req.Page, uint64(userID))
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "获取成功",
+		"data": gin.H{
+			"list":  list,
+			"total": models.GetMemberCouponTotal(uint64(userID)),
+			"page":  req.Page,
+			"limit": req.Limit,
+		},
+	})
+}
+
 // CouponShopListRequest 按店铺查询优惠券列表请求参数
 type CouponShopListRequest struct {
 	ShopID int64  `json:"shop_id" form:"shop_id" binding:"required"`

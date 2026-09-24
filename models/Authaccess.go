@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"tiyu/global"
 )
 
 type Authaccess struct {
@@ -16,7 +17,7 @@ func (a *Authaccess) TableName() string {
 // 根据用户id找用户返回数据
 func SelectAdminGid(Id int64) (*Authaccess, error) {
 	a := new(Authaccess)
-	has, err := Dorm.Where("uid = ?", Id).Get(a)
+	has, err := global.Dorm.Where("uid = ?", Id).Get(a)
 	if err != nil {
 		return nil, err
 	}
@@ -29,6 +30,6 @@ func SelectAdminGid(Id int64) (*Authaccess, error) {
 
 // 添加用户与组别绑定关系
 func AddAuthAccess(access *Authaccess) error {
-	_, err := Dorm.Insert(access)
+	_, err := global.Dorm.Insert(access)
 	return err
 }

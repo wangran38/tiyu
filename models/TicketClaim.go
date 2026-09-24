@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"time"
+	"tiyu/global"
+)
 
 // TicketClaim 票根提交解析与领券记录，负责防刷和重复领取拦截。
 type TicketClaim struct {
@@ -49,7 +52,7 @@ func GetTicketClaimList(limit int, page int, search *TicketClaim, order string) 
 		byorder = "created_at DESC"
 	}
 
-	query := Dorm.Table("ticket_claims")
+	query := global.Dorm.Table("ticket_claims")
 	if search.UserID > 0 {
 		query = query.And("user_id = ?", search.UserID)
 	}
@@ -81,7 +84,7 @@ func GetTicketClaimList(limit int, page int, search *TicketClaim, order string) 
 }
 
 func GetTicketClaimTotal(search *TicketClaim) int64 {
-	query := Dorm.NewSession()
+	query := global.Dorm.NewSession()
 	if search.UserID > 0 {
 		query = query.Where("user_id = ?", search.UserID)
 	}
@@ -115,6 +118,6 @@ func GetTicketClaimTotal(search *TicketClaim) int64 {
 }
 
 func AddTicketClaim(claim *TicketClaim) error {
-	_, err := Dorm.Insert(claim)
+	_, err := global.Dorm.Insert(claim)
 	return err
 }

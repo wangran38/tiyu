@@ -1,9 +1,11 @@
 package models
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"time"
+	"tiyu/global"
 )
 
 // Shop 店铺主表 (O2O线下商家信息表)
@@ -102,7 +104,7 @@ func GetShopList(limit int, page int, search *Shop, startTime string, endTime st
 		}
 	}
 
-	query := Dorm.Table("shops")
+	query := global.Dorm.Table("shops")
 
 	if search.Status >= 0 {
 		query = query.And("status = ?", search.Status)
@@ -169,7 +171,7 @@ func calculateDistanceKm(userLat, userLng, shopLat, shopLng float64) float64 {
 
 // GetShopTotal 获取符合条件的店铺总条数
 func GetShopTotal(search *Shop, startTime string, endTime string) int64 {
-	session := Dorm.NewSession()
+	session := global.Dorm.NewSession()
 	defer session.Close()
 
 	if search.Status >= 0 {
@@ -220,7 +222,7 @@ func GetShopTotal(search *Shop, startTime string, endTime string) int64 {
 
 func GetShopByID(id int64) (*Shop, error) {
 	shop := new(Shop)
-	has, err := Dorm.ID(id).Get(shop)
+	has, err := global.Dorm.ID(id).Get(shop)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +234,7 @@ func GetShopByID(id int64) (*Shop, error) {
 
 func GetShopByUserID(userID int64) (*Shop, error) {
 	shop := new(Shop)
-	has, err := Dorm.Where("user_id = ?", userID).Get(shop)
+	has, err := global.Dorm.Where("user_id = ?", userID).Get(shop)
 	if err != nil {
 		return nil, err
 	}
@@ -243,16 +245,33 @@ func GetShopByUserID(userID int64) (*Shop, error) {
 }
 
 func AddShop(shop *Shop) error {
-	_, err := Dorm.Insert(shop)
+	_, err := global.Dorm.Insert(shop)
 	return err
 }
 
 func UpdateShop(id int64, shop *Shop) error {
-	_, err := Dorm.ID(id).AllCols().Update(shop)
+	_, err := global.Dorm.ID(id).AllCols().Update(shop)
 	return err
 }
 
 func DeleteShop(id int64) error {
-	_, err := Dorm.ID(id).Delete(new(Shop))
+	_, err := global.Dorm.ID(id).Delete(new(Shop))
 	return err
+}
+func UpdateShopMap(id int64, updateData map[string]interface{}) error {
+	if len(updateData) == 0 {
+		return nil
+	}
+
+	// 使用显式的 Where("id = ?", id)，确保绝对安全！
+	affected, err := global.Dorm.Table("shops").Where("id = ?", id).Update(updateData)
+	if err != nil {
+		return err
+	}
+
+	if affected == 0 {
+		return errors.New("记录不存在或未发生任何修改")
+	}
+
+	return nil
 }

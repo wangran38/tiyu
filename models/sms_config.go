@@ -2,11 +2,12 @@ package models
 
 import (
 	"time"
+	"tiyu/global"
 )
 
 // SmsConfig 云短信服务配置
 type SmsConfig struct {
-	Id        int64     `json:"id" xDorm:"pk autoincr 'id'"`
+	Id        int64     `json:"id" xglobal.Dorm:"pk autoincr 'id'"`
 	Provider  string    `json:"provider" xorm:"varchar(50) notnull comment('服务商标识: tencent/aliyun')"`
 	Name      string    `json:"name" xorm:"varchar(100) notnull comment('配置名称')"`
 	Config    string    `json:"config" xorm:"text notnull comment('秘钥/模板/签名等 JSON 配置')"`
@@ -31,7 +32,7 @@ func GetSmsConfigList(limit int, page int, search *SmsConfig, order string) []*S
 		byorder = "id DESC"
 	}
 	listdata := []*SmsConfig{}
-	session := Dorm.Table("sms_configs")
+	session := global.Dorm.Table("sms_configs")
 
 	if search.Id > 0 {
 		session = session.And("id = ?", search.Id)
@@ -55,7 +56,7 @@ func GetSmsConfigList(limit int, page int, search *SmsConfig, order string) []*S
 
 // 统计总数
 func GetSmsConfigTotal(search *SmsConfig) int64 {
-	session := Dorm.Table("sms_configs")
+	session := global.Dorm.Table("sms_configs")
 
 	if search.Id > 0 {
 		session = session.And("id = ?", search.Id)
@@ -83,7 +84,7 @@ func GetSmsConfigTotal(search *SmsConfig) int64 {
 // 获取默认且启用的短信配置 (用于发送短信接口)
 func GetDefaultSmsConfig() (*SmsConfig, error) {
 	s := new(SmsConfig)
-	has, err := Dorm.Table("sms_configs").
+	has, err := global.Dorm.Table("sms_configs").
 		Where("is_default = ? AND status = ?", 1, 1).
 		Get(s)
 	if err != nil {
@@ -101,7 +102,7 @@ func AddSmsConfig(s *SmsConfig) error {
 	if s.IsDefault == 1 {
 		ClearOtherSmsDefault(0)
 	}
-	_, err := Dorm.Insert(s)
+	_, err := global.Dorm.Insert(s)
 	return err
 }
 
@@ -111,22 +112,22 @@ func EditSmsConfig(s *SmsConfig) error {
 	if s.IsDefault == 1 {
 		ClearOtherSmsDefault(s.Id)
 	}
-	_, err := Dorm.ID(s.Id).Update(s)
+	_, err := global.Dorm.ID(s.Id).Update(s)
 	return err
 }
 
 // 删除
 func DelSmsConfig(id int64) int {
 	s := new(SmsConfig)
-	outnum, _ := Dorm.ID(id).Delete(s)
+	outnum, _ := global.Dorm.ID(id).Delete(s)
 	return int(outnum)
 }
 
 // 清除其他短信记录的默认标志 (保证全局仅有一条记录 is_default=1)
 func ClearOtherSmsDefault(excludeId int64) {
 	if excludeId > 0 {
-		Dorm.Table("sms_configs").Where("id != ?", excludeId).Cols("is_default").Update(&SmsConfig{IsDefault: 2})
+		global.Dorm.Table("sms_configs").Where("id != ?", excludeId).Cols("is_default").Update(&SmsConfig{IsDefault: 2})
 	} else {
-		Dorm.Table("sms_configs").Cols("is_default").Update(&SmsConfig{IsDefault: 2})
+		global.Dorm.Table("sms_configs").Cols("is_default").Update(&SmsConfig{IsDefault: 2})
 	}
 }

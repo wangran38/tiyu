@@ -2,6 +2,7 @@ package models
 
 import (
 	"time"
+	"tiyu/global"
 )
 
 // ShopCategory 入驻商家分类表
@@ -47,7 +48,7 @@ func GetShopCategoryList(limit int, page int, search *ShopCategory, order string
 		byorder = "created_at DESC"
 	}
 
-	query := Dorm.Table("shop_categories")
+	query := global.Dorm.Table("shop_categories")
 
 	// -------------------- 约定逻辑 --------------------
 	// 1. ParentID == -1：查全部分类 (不拼 parent_id 条件)
@@ -74,7 +75,7 @@ func GetShopCategoryList(limit int, page int, search *ShopCategory, order string
 
 // GetShopCategoryTotal 获取符合条件的分类总条数
 func GetShopCategoryTotal(search *ShopCategory) int64 {
-	session := Dorm.NewSession()
+	session := global.Dorm.NewSession()
 	defer session.Close()
 
 	// -------------------- 约定逻辑 --------------------
@@ -103,26 +104,26 @@ func GetShopCategoryTotal(search *ShopCategory) int64 {
 
 // AddShopCategory 新增商家分类
 func AddShopCategory(category *ShopCategory) error {
-	_, err := Dorm.Insert(category)
+	_, err := global.Dorm.Insert(category)
 	return err
 }
 
 // UpdateShopCategory 更新商家分类
 func UpdateShopCategory(id uint64, category *ShopCategory) error {
-	_, err := Dorm.ID(id).Update(category)
+	_, err := global.Dorm.ID(id).Update(category)
 	return err
 }
 
 // DeleteShopCategory 删除商家分类（触发软删除）
 func DeleteShopCategory(id uint64) error {
-	_, err := Dorm.ID(id).Delete(new(ShopCategory))
+	_, err := global.Dorm.ID(id).Delete(new(ShopCategory))
 	return err
 }
 
 // GetAllActiveShopCategories 获取所有启用状态的商家分类（用于构建分类树）
 func GetAllActiveShopCategories() ([]*ShopCategory, error) {
 	categories := make([]*ShopCategory, 0)
-	err := Dorm.Table("shop_categories").
+	err := global.Dorm.Table("shop_categories").
 		Where("status = ?", 1).
 		OrderBy("sort DESC, id ASC").
 		Find(&categories)

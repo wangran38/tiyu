@@ -3,6 +3,7 @@ package models
 import (
 	"errors"
 	"time"
+	"tiyu/global"
 )
 
 var ErrCouponMinPoint = errors.New("订单金额未达到优惠券使用门槛")
@@ -33,7 +34,7 @@ func (a *Coupon) TableName() string {
 
 func GetCouponByID(id uint64) (*Coupon, error) {
 	coupon := new(Coupon)
-	has, err := Dorm.ID(id).Get(coupon)
+	has, err := global.Dorm.ID(id).Get(coupon)
 	if err != nil {
 		return nil, err
 	}
@@ -70,6 +71,7 @@ func CalculateCouponDiscount(coupon *Coupon, amount float64) (float64, error) {
 }
 
 // 分页列表（使用结构体指针作为 search 条件）
+// 分页列表（使用结构体指针作为 search 条件）
 func GetCouponList(limit int, page int, search *Coupon, order string) []*Coupon {
 	offset := page - 1
 	if offset < 0 {
@@ -81,7 +83,7 @@ func GetCouponList(limit int, page int, search *Coupon, order string) []*Coupon 
 	}
 
 	listdata := []*Coupon{}
-	query := Dorm.Table("pgh5_coupon")
+	query := global.Dorm.Table("pgh5_coupon")
 
 	if search != nil {
 		if search.Title != "" {
@@ -93,12 +95,15 @@ func GetCouponList(limit int, page int, search *Coupon, order string) []*Coupon 
 		if search.UserId > 0 {
 			query = query.And("user_id = ?", search.UserId)
 		}
-		// 如果按某个特定分类过滤，可以使用 FIND_IN_SET 来匹配逗号分隔的多分类字段
 		if search.Categories != "" {
 			query = query.And("find_in_set(?, categories)", search.Categories)
 		}
 		if search.Status > 0 {
 			query = query.And("status = ?", search.Status)
+		}
+		// 判断 EndTime 是否传值（非零值时生效）
+		if !search.EndTime.IsZero() {
+			query = query.And("end_time >= ?", search.EndTime)
 		}
 	}
 
@@ -111,7 +116,7 @@ func GetCouponList(limit int, page int, search *Coupon, order string) []*Coupon 
 // 获取总数
 func GetCouponTotal(search *Coupon) int64 {
 	a := new(Coupon)
-	query := Dorm.Table("pgh5_coupon")
+	query := global.Dorm.Table("pgh5_coupon")
 
 	if search != nil {
 		if search.Title != "" {
@@ -129,6 +134,10 @@ func GetCouponTotal(search *Coupon) int64 {
 		if search.Status > 0 {
 			query = query.And("status = ?", search.Status)
 		}
+		// 同样的 EndTime 过滤条件
+		if !search.EndTime.IsZero() {
+			query = query.And("end_time >= ?", search.EndTime)
+		}
 	}
 
 	total, err := query.Count(a)
@@ -140,29 +149,87 @@ func GetCouponTotal(search *Coupon) int64 {
 
 // 新增
 func AddCoupon(a *Coupon) error {
-	_, err := Dorm.Insert(a)
+	_, err := global.Dorm.Insert(a)
 	return err
 }
 
 // 修改
 func EditCoupon(a *Coupon) error {
-	_, err := Dorm.ID(a.Id).Update(a)
+	_, err := global.Dorm.ID(a.Id).Update(a)
 	return err
 }
 
 // 删除
 func DelCoupon(id int64) int {
 	a := new(Coupon)
-	outnum, _ := Dorm.ID(id).Delete(a)
+	outnum, _ := global.Dorm.ID(id).Delete(a)
 	return int(outnum)
 }
 
 // 修改（带商户归属校验，防止越权）
 func EditCouponByShop(a *Coupon) int64 {
 	// 使用 ID 和 ShopId 联合定位，确保只能修改自己店铺的券
-	affected, err := Dorm.ID(a.Id).Where("shop_id = ?", a.ShopId).Update(a)
+	affected, err := global.Dorm.ID(a.Id).Where("shop_id = ?", a.ShopId).Update(a)
 	if err != nil {
 		return 0
 	}
 	return affected
+}
+
+// MemberCouponRecord 会员已领取的优惠券记录（连表票根，展示兑换使用的票根信息）
+type MemberCouponRecord struct {
+	// 兑换所用票根信息 (member_tickets)
+	TicketID       uint64     `xorm:"ticket_id" json:"ticket_id"`
+	ChannelType    string     `xorm:"channel_type" json:"channel_type"`
+	TicketCategory string     `xorm:"ticket_category" json:"ticket_category"`
+	TemplateID     uint64     `xorm:"template_id" json:"template_id"`
+	UserImageURL   string     `xorm:"user_image_url" json:"user_image_url"`
+	TicketTitle    string     `xorm:"ticket_title" json:"ticket_title"`
+	HolderName     string     `xorm:"holder_name" json:"holder_name"`
+	EventDate      string     `xorm:"event_date" json:"event_date"`
+	Seat           string     `xorm:"seat" json:"seat"`
+	TicketAmount   float64    `xorm:"ticket_amount" json:"ticket_amount"`
+	IsHandwritten  bool       `xorm:"is_handwritten" json:"is_handwritten"`
+	ExchangedAt    *time.Time `xorm:"exchanged_at" json:"exchanged_at"`
+	// 关联优惠券信息 (pgh5_coupon，通过 c.* 扩展)
+	Coupon *Coupon `xorm:"extends" json:"coupon"`
+}
+
+// memberCouponColumns 连表查询需展示的列。因 pgh5_coupon 与 member_tickets 均含 title 等重名列，
+// XORM 无法区分同名列，故仅对票根的重名列使用别名，优惠券字段通过 c.* 全部展开。
+const memberCouponColumns = `
+	c.*,
+	mt.id AS ticket_id, mt.channel_type, mt.ticket_category, mt.template_id,
+	mt.user_image_url, mt.title AS ticket_title, mt.holder_name, mt.event_date,
+	mt.seat, mt.amount AS ticket_amount, mt.is_handwritten, mt.exchanged_at`
+
+// GetMemberCouponList 获取指定会员已领取（兑换成功）的优惠券分页列表，以优惠券为主表 LEFT JOIN 票根，展示兑换所用票根。按兑换时间倒序。
+func GetMemberCouponList(limit, page int, userID uint64) []*MemberCouponRecord {
+	if limit <= 0 {
+		limit = 10
+	}
+	if page <= 0 {
+		page = 1
+	}
+	offset := (page - 1) * limit
+
+	list := []*MemberCouponRecord{}
+	global.Dorm.Table("pgh5_coupon c").
+		Select(memberCouponColumns).
+		Join("LEFT JOIN", "member_tickets mt", "mt.coupon_id = c.id AND mt.exchange_status = 1").
+		Where("c.id IN (SELECT coupon_id FROM member_tickets WHERE user_id = ? AND exchange_status = 1 AND coupon_id > 0)", userID).
+		OrderBy("mt.exchanged_at DESC").
+		Limit(limit, offset).
+		Find(&list)
+	return list
+}
+
+// GetMemberCouponTotal 获取指定会员已领取优惠券的总数。
+func GetMemberCouponTotal(userID uint64) int64 {
+	total, _ := global.Dorm.Table("member_tickets").
+		Where("user_id = ?", userID).
+		And("exchange_status = 1").
+		And("coupon_id > 0").
+		Count(new(MemberTicket))
+	return total
 }

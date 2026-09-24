@@ -2,6 +2,7 @@ package models
 
 import (
 	"time"
+	"tiyu/global"
 )
 
 // SportsCategory 体育赛事分类
@@ -32,7 +33,7 @@ func GetSportsCategoryList(limit int, page int, search string, order string) []*
 		byorder = "id DESC"
 	}
 	listdata := []*SportsCategory{}
-	Dorm.Table("sports_category").
+	global.Dorm.Table("sports_category").
 		Where("name like ?", "%"+search+"%").
 		OrderBy(byorder).
 		Limit(limit, limit*offset).
@@ -42,7 +43,7 @@ func GetSportsCategoryList(limit int, page int, search string, order string) []*
 
 func GetSportsCategoryTotal(search string) int64 {
 	a := new(SportsCategory)
-	total, err := Dorm.Where("name like ?", "%"+search+"%").Count(a)
+	total, err := global.Dorm.Where("name like ?", "%"+search+"%").Count(a)
 	if err != nil {
 		return 0
 	}
@@ -51,19 +52,19 @@ func GetSportsCategoryTotal(search string) int64 {
 
 // 新增
 func AddSportsCategory(a *SportsCategory) error {
-	_, err := Dorm.Insert(a)
+	_, err := global.Dorm.Insert(a)
 	return err
 }
 
 // 修改
 func EditSportsCategory(a *SportsCategory) error {
-	_, err := Dorm.ID(a.Id).Update(a)
+	_, err := global.Dorm.ID(a.Id).Update(a)
 	return err
 }
 
 // 删除
 func DelSportsCategory(id int64) int {
 	a := new(SportsCategory)
-	outnum, _ := Dorm.ID(id).Delete(a)
+	outnum, _ := global.Dorm.ID(id).Delete(a)
 	return int(outnum)
 }

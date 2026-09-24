@@ -2,6 +2,7 @@ package models
 
 import (
 	"time"
+	"tiyu/global"
 )
 
 // Event 赛事活动
@@ -58,7 +59,7 @@ func GetEventList(limit int, page int, search string, categoryId int64, registra
 	case "-id":
 		byorder = "id DESC"
 	}
-	query := Dorm.Table("events")
+	query := global.Dorm.Table("events")
 	if search != "" {
 		query = query.Where("title like ?", "%"+search+"%")
 	}
@@ -84,7 +85,7 @@ func GetEventList(limit int, page int, search string, categoryId int64, registra
 
 func GetEventTotal(search string, categoryId int64, registrationFrom *time.Time, registrationTo *time.Time, startTime *time.Time, endTime *time.Time) int64 {
 	a := new(Event)
-	query := Dorm.NewSession().Where("1 = 1")
+	query := global.Dorm.NewSession().Where("1 = 1")
 	if search != "" {
 		query = query.Where("title like ?", "%"+search+"%")
 	}
@@ -112,19 +113,19 @@ func GetEventTotal(search string, categoryId int64, registrationFrom *time.Time,
 
 // 新增
 func AddEvent(a *Event) error {
-	_, err := Dorm.Insert(a)
+	_, err := global.Dorm.Insert(a)
 	return err
 }
 
 // 修改
 func EditEvent(a *Event) error {
-	_, err := Dorm.ID(a.Id).Update(a)
+	_, err := global.Dorm.ID(a.Id).Update(a)
 	return err
 }
 
 // 删除
 func DelEvent(id int64) int {
 	a := new(Event)
-	outnum, _ := Dorm.ID(id).Delete(a)
+	outnum, _ := global.Dorm.ID(id).Delete(a)
 	return int(outnum)
 }

@@ -2,6 +2,7 @@ package models
 
 import (
 	"time"
+	"tiyu/global"
 )
 
 // PublicTicketRecognition 用于保存公开识别接口（非会员登录）识别出来的票根记录。
@@ -35,6 +36,6 @@ func (PublicTicketRecognition) TableName() string {
 
 // AddPublicTicketRecognition 保存公开识别接口成功识别的票根记录。
 func AddPublicTicketRecognition(record *PublicTicketRecognition) error {
-	_, err := Dorm.Insert(record)
+	_, err := global.Dorm.Insert(record)
 	return err
 }

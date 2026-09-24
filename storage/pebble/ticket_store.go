@@ -24,15 +24,16 @@ var ErrDuplicate = errors.New("ticket already exists")
 
 // Record 保存票根识别结果及其防重信息。
 type Record struct {
-	TicketCategory string    `json:"ticket_category"`
-	TicketSN       string    `json:"ticket_sn"`
-	Seat           string    `json:"seat"`
-	HolderName     string    `json:"holder_name"`
-	EventDate      string    `json:"event_date"`
-	ImageHash      string    `json:"image_hash"`
-	UserImageURL   string    `json:"user_image_url"`
-	OCRJSON        []byte    `json:"ocr_json"`
-	CreatedAt      time.Time `json:"created_at"`
+	TicketCategory     string    `json:"ticket_category"`
+	TicketMainCategory string    `json:"ticket_main_category"`
+	TicketSN           string    `json:"ticket_sn"`
+	Seat               string    `json:"seat"`
+	HolderName         string    `json:"holder_name"`
+	EventDate          string    `json:"event_date"`
+	ImageHash          string    `json:"image_hash"`
+	UserImageURL       string    `json:"user_image_url"`
+	OCRJSON            []byte    `json:"ocr_json"`
+	CreatedAt          time.Time `json:"created_at"`
 }
 
 // Init 获取统一的 Pebble 数据库连接。

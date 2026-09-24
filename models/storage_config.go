@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"time"
+	"tiyu/global"
 )
 
 type StorageConfig struct {
@@ -25,7 +26,7 @@ func (StorageConfig) TableName() string {
 // GetStorageConfigList 获取存储配置列表
 func GetStorageConfigList(limit, page int, search *StorageConfig, order string) []*StorageConfig {
 	list := make([]*StorageConfig, 0)
-	session := Dorm.Table("storage_configs")
+	session := global.Dorm.Table("storage_configs")
 
 	if search.Provider != "" {
 		session.And("provider = ?", search.Provider)
@@ -57,7 +58,7 @@ func GetStorageConfigList(limit, page int, search *StorageConfig, order string) 
 
 // GetStorageConfigTotal 获取符合条件的总记录数
 func GetStorageConfigTotal(search *StorageConfig) int64 {
-	session := Dorm.Table("storage_configs")
+	session := global.Dorm.Table("storage_configs")
 
 	if search.Provider != "" {
 		session.And("provider = ?", search.Provider)
@@ -82,7 +83,7 @@ func GetStorageConfigTotal(search *StorageConfig) int64 {
 // GetStorageConfigByID 根据 ID 获取配置
 func GetStorageConfigByID(id uint64) (*StorageConfig, error) {
 	config := new(StorageConfig)
-	has, err := Dorm.ID(id).Get(config)
+	has, err := global.Dorm.ID(id).Get(config)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +103,7 @@ func AddStorageConfig(config *StorageConfig, rawConfig interface{}) error {
 		config.Config = string(bytes)
 	}
 
-	session := Dorm.NewSession()
+	session := global.Dorm.NewSession()
 	defer session.Close()
 
 	if err := session.Begin(); err != nil {
@@ -135,7 +136,7 @@ func UpdateStorageConfig(id uint64, config *StorageConfig, rawConfig interface{}
 		config.Config = string(bytes)
 	}
 
-	session := Dorm.NewSession()
+	session := global.Dorm.NewSession()
 	defer session.Close()
 
 	if err := session.Begin(); err != nil {
@@ -159,13 +160,13 @@ func UpdateStorageConfig(id uint64, config *StorageConfig, rawConfig interface{}
 
 // DeleteStorageConfig 删除存储配置
 func DeleteStorageConfig(id uint64) error {
-	_, err := Dorm.ID(id).Delete(&StorageConfig{})
+	_, err := global.Dorm.ID(id).Delete(&StorageConfig{})
 	return err
 }
 
 // SetDefaultStorageConfig 设置单个配置为默认
 func SetDefaultStorageConfig(id uint64) error {
-	session := Dorm.NewSession()
+	session := global.Dorm.NewSession()
 	defer session.Close()
 
 	if err := session.Begin(); err != nil {
@@ -193,7 +194,7 @@ func SetDefaultStorageConfig(id uint64) error {
 // GetDefaultStorageConfig 获取当前启用的默认存储配置
 func GetDefaultStorageConfig() (*StorageConfig, error) {
 	config := new(StorageConfig)
-	has, err := Dorm.Table("storage_configs").
+	has, err := global.Dorm.Table("storage_configs").
 		Where("is_default = ? AND status = ?", 1, 1).
 		Get(config)
 	if err != nil {

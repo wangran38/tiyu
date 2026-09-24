@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"time"
+	"tiyu/global"
+)
 
 // UserFlow 会员流水（积分/等级变化记录）
 type UserFlow struct {
@@ -32,7 +35,7 @@ func GetUserFlowList(limit int, page int, search *UserFlow, order string) []*Use
 		byorder = "id DESC"
 	}
 	listdata := []*UserFlow{}
-	session := Dorm.Table("user_flow")
+	session := global.Dorm.Table("user_flow")
 	if search.UserId > 0 {
 		session = session.And("user_id = ?", search.UserId)
 	}
@@ -47,7 +50,7 @@ func GetUserFlowList(limit int, page int, search *UserFlow, order string) []*Use
 }
 
 func GetUserFlowTotal(search *UserFlow) int64 {
-	session := Dorm.Table("user_flow")
+	session := global.Dorm.Table("user_flow")
 	if search.UserId > 0 {
 		session = session.And("user_id = ?", search.UserId)
 	}
@@ -66,6 +69,6 @@ func GetUserFlowTotal(search *UserFlow) int64 {
 
 // 写入一条流水
 func AddUserFlow(f *UserFlow) error {
-	_, err := Dorm.Insert(f)
+	_, err := global.Dorm.Insert(f)
 	return err
 }

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"tiyu/global"
 	"tiyu/lib"    // 替换为你项目的 lib 包路径 (包含 Password 函数)
 	"tiyu/models" // 替换为你项目的 models 包路径
 	"tiyu/utils"  // 替换为你项目的 utils 包路径
@@ -51,7 +52,7 @@ func QuickLoginByPhone(c *gin.Context) {
 
 	// 3. 查询数据库判断用户是否存在
 	var user models.User
-	has, err := models.Dorm.Where("mobile = ?", mobile).Get(&user)
+	has, err := global.Dorm.Where("mobile = ?", mobile).Get(&user)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"code": 500, "msg": "数据库查询异常"})
 		return
@@ -84,7 +85,7 @@ func QuickLoginByPhone(c *gin.Context) {
 		}
 
 		// 插入新用户
-		_, err = models.Dorm.Insert(&user)
+		_, err = global.Dorm.Insert(&user)
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{"code": 500, "msg": "自动创建账号失败，请稍后重试"})
 			return
@@ -99,7 +100,7 @@ func QuickLoginByPhone(c *gin.Context) {
 		// 更新最后登录 IP 和时间
 		user.LastLoginIp = c.ClientIP()
 		user.LastLoginAt = time.Now().Unix()
-		models.Dorm.Id(user.Id).Cols("last_login_ip", "last_login_at").Update(&user)
+		global.Dorm.Id(user.Id).Cols("last_login_ip", "last_login_at").Update(&user)
 	}
 
 	// 5. 签发 JWT Token

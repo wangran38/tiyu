@@ -55,14 +55,16 @@ type QwenReq struct {
 }
 
 type OCRResult struct {
-	ChannelType    string  `json:"channel_type"`
-	TicketCategory string  `json:"ticket_category"`
-	ThirdPartyName string  `json:"third_party_name"`
-	IsValid        bool    `json:"is_valid"`
-	IsHandwritten  bool    `json:"is_handwritten"`
-	IsSameTemplate bool    `json:"is_same_template"`
-	Confidence     float64 `json:"confidence"`
-	Data           struct {
+	ChannelType        string  `json:"channel_type"`
+	TicketMainCategory string  `json:"ticket_main_category"` // 五大类：交通出行类/文体娱乐类/零售餐饮类/生活缴费类/生活服务类
+	TicketCategory     string  `json:"ticket_category"`
+	ThirdPartyName     string  `json:"third_party_name"`
+	IsValid            bool    `json:"is_valid"`
+	IsHandwritten      bool    `json:"is_handwritten"`
+	IsSameTemplate     bool    `json:"is_same_template"`
+	Confidence         float64 `json:"confidence"`
+	RepeatCount        int     `json:"repeat_count"` // 票根累积提交/被识别次数
+	Data               struct {
 		Title      string  `json:"title"`
 		HolderName string  `json:"holder_name"`
 		EventDate  string  `json:"event_date"`
@@ -82,6 +84,12 @@ type VerifyTicketRequest struct {
 // ===== 3. AI 解析核心函数 =====
 func ParseTicketVision(ctx context.Context, apiKey, userImgURL, sampleImgURL string) (*OCRResult, error) {
 	prompt := `你是一个全能的文旅及交通票据智能审核专家。请分析上传的图片：
+【票根五大类划分标准 (ticket_main_category)】
+1. 交通出行类: 12306火车票/行程单、机票登机牌/行程单、出租车/网约车行程单、客运汽车票、轮渡票等。
+2. 文体娱乐类: 演唱会门票、电影票、景区门票/核销码、体育赛事入场券、展览/剧场票等。
+3. 零售餐饮类: 餐饮发票/小票、超市/商场购物发票、便利店消费凭证等。
+4. 生活缴费类: 水电气费发票、物业费收据、宽带/通讯费发票等。
+5. 生活服务类: 酒店住宿发票/账单、美容美发/健身/家政消费凭证、洗车/保养收据等。
 
 【通道分类规则】
 - CHANNEL_A (标准票): 12306火车票/行程单、机票登机牌/行程单、国家统一增值税发票。
@@ -90,24 +98,26 @@ func ParseTicketVision(ctx context.Context, apiKey, userImgURL, sampleImgURL str
 
 【提取要求】
 1. 判断 channel_type ("CHANNEL_A" 或 "CHANNEL_B")
-2. 判断 ticket_category：火车票返回“火车票”，飞机票返回“飞机票”，其他票据返回票面上的第三方平台或活动名称。同时将第三方平台或活动名称填入 third_party_name；火车票和飞机票的该字段为空。请先自动纠正图片的横竖方向后再识别文字。
-3. 提取字段：
+2. 判断 ticket_main_category (必须严格是："交通出行类"、"文体娱乐类"、"零售餐饮类"、"生活缴费类"、"生活服务类" 之一)
+3. 判断 ticket_category：火车票返回“火车票”，飞机票返回“飞机票”，其他票据返回票面上的第三方平台或活动名称。同时将第三方平台或活动名称填入 third_party_name；火车票和飞机票的该字段为空。请先自动纠正图片的横竖方向后再识别文字。
+4. 提取字段：
    - title: 票头或活动/景区名称
    - holder_name: 持票人/乘客姓名 (若无则为空)
    - event_date: 格式 YYYY-MM-DD hh:mm:ss (如 2026-05-01 10:00:00)
    - ticket_sn: 核心流水号、车次(如G1234)、航班号、订单号
    - amount: 数字金额 (如 100.50)
-4. 若传入了两张图（第一张为后台参考模版，第二张为用户上传），请对比两者版式布局是否一致 (is_same_template: true/false)。
-5. 判断票据是否为手绘、手写或非印刷制作 (is_handwritten)。只要票面主要内容是手绘、手写或非印刷填写形成的票据，就判定为无效票据 (is_valid: false)，并在 reject_reason 中说明原因；正常印刷票据即使有手写签名或少量手写补充，也不算手绘票。
-6. 提取票面座位信息并填入 data.seat，例如“3排8座”“A区12排5号”；没有座位信息时返回空字符串。
-
+5. 若传入了两张图（第一张为后台参考模版，第二张为用户上传），请对比两者版式布局是否一致 (is_same_template: true/false)。
+6. 判断票据是否为手绘、手写或非印刷制作 (is_handwritten)。只要票面主要内容是手绘、手写或非印刷填写形成的票据，就判定为无效票据 (is_valid: false)，并在 reject_reason 中说明原因；正常印刷票据即使有手写签名或少量手写补充，也不算手绘票。
+7. 提取票面座位信息并填入 data.seat，例如“3排8座”“A区12排5号”；没有座位信息时返回空字符串。
+8. 如果是餐饮零售、生活服务类、生活缴费类判断是否为发票，如果不是正规的发票模式则不能判定为有效票据。
 请严格只返回以下 JSON 格式，绝不要添加任何 Markdown 格式符或额外解释：
 {
   "channel_type": "CHANNEL_A",
+  "ticket_main_category": "交通出行类",
   "ticket_category": "火车票",
   "third_party_name": "",
   "is_valid": true,
-	"is_handwritten": false,
+  "is_handwritten": false,
   "is_same_template": true,
   "confidence": 0.98,
   "data": {
@@ -115,12 +125,11 @@ func ParseTicketVision(ctx context.Context, apiKey, userImgURL, sampleImgURL str
     "holder_name": "张三",
     "event_date": "2026-05-01 10:00:00",
     "ticket_sn": "G1234",
-	"seat": "3排8座",
+    "seat": "3排8座",
     "amount": 150.50
   },
   "reject_reason": ""
 }`
-
 	var contents []ContentItem
 	if sampleImgURL != "" {
 		contents = append(contents, ContentItem{
@@ -331,15 +340,16 @@ func VerifyTicketHandler(c *gin.Context) {
 		return
 	}
 	duplicateKind, err := ticketstore.SaveIfAbsent(ticketstore.Record{
-		TicketCategory: ocrRes.TicketCategory,
-		TicketSN:       ocrRes.Data.TicketSN,
-		Seat:           ocrRes.Data.Seat,
-		HolderName:     ocrRes.Data.HolderName,
-		EventDate:      ocrRes.Data.EventDate,
-		ImageHash:      imageHash,
-		UserImageURL:   userImgURL,
-		OCRJSON:        ocrJSON,
-		CreatedAt:      time.Now(),
+		TicketMainCategory: ocrRes.TicketMainCategory,
+		TicketCategory:     ocrRes.TicketCategory,
+		TicketSN:           ocrRes.Data.TicketSN,
+		Seat:               ocrRes.Data.Seat,
+		HolderName:         ocrRes.Data.HolderName,
+		EventDate:          ocrRes.Data.EventDate,
+		ImageHash:          imageHash,
+		UserImageURL:       userImgURL,
+		OCRJSON:            ocrJSON,
+		CreatedAt:          time.Now(),
 	})
 	if errors.Is(err, ticketstore.ErrDuplicate) {
 		message := "对不起，你拍摄的票根已经存在重复"
@@ -356,22 +366,23 @@ func VerifyTicketHandler(c *gin.Context) {
 
 	recognizedAt := time.Now()
 	memberTicket := &models.MemberTicket{
-		UserID:         uint64(userID),
-		ChannelType:    ocrRes.ChannelType,
-		TicketCategory: ocrRes.TicketCategory,
-		UserImageURL:   userImgURL,
-		PHash:          imageHash,
-		TicketSN:       ocrRes.Data.TicketSN,
-		Title:          ocrRes.Data.Title,
-		HolderName:     ocrRes.Data.HolderName,
-		EventDate:      ocrRes.Data.EventDate,
-		Seat:           ocrRes.Data.Seat,
-		Amount:         ocrRes.Data.Amount,
-		Confidence:     ocrRes.Confidence,
-		IsHandwritten:  ocrRes.IsHandwritten,
-		OCRRawJSON:     string(ocrJSON),
-		ExchangeStatus: 0,
-		RecognizedAt:   recognizedAt,
+		UserID:             uint64(userID),
+		ChannelType:        ocrRes.ChannelType,
+		TicketMainCategory: ocrRes.TicketMainCategory,
+		TicketCategory:     ocrRes.TicketCategory,
+		UserImageURL:       userImgURL,
+		PHash:              imageHash,
+		TicketSN:           ocrRes.Data.TicketSN,
+		Title:              ocrRes.Data.Title,
+		HolderName:         ocrRes.Data.HolderName,
+		EventDate:          ocrRes.Data.EventDate,
+		Seat:               ocrRes.Data.Seat,
+		Amount:             ocrRes.Data.Amount,
+		Confidence:         ocrRes.Confidence,
+		IsHandwritten:      ocrRes.IsHandwritten,
+		OCRRawJSON:         string(ocrJSON),
+		ExchangeStatus:     0,
+		RecognizedAt:       recognizedAt,
 	}
 	if err := models.AddMemberTicket(memberTicket); err != nil {
 		c.JSON(http.StatusOK, gin.H{"code": 500, "msg": "会员票根记录保存失败: " + err.Error()})

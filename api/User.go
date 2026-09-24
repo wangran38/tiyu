@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"tiyu/global"
 	"tiyu/models"
 
 	"github.com/gin-gonic/gin"
@@ -20,7 +21,7 @@ func GetUserProfile(c *gin.Context) {
 
 	// 查询数据库
 	var user models.User
-	has, err := models.Dorm.ID(userID).Get(&user)
+	has, err := global.Dorm.ID(userID).Get(&user)
 	if err != nil || !has {
 		c.JSON(http.StatusOK, gin.H{"code": 404, "msg": "用户不存在"})
 		return

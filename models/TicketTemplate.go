@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+	"tiyu/global"
 )
 
 type JSONSlice []string
@@ -70,7 +71,7 @@ func GetTicketTemplateList(limit int, page int, search string, order string) []*
 		byorder = "created_at DESC"
 	}
 	listdata := []*TicketTemplate{}
-	Dorm.Table("ticket_template").
+	global.Dorm.Table("ticket_template").
 		Where("deleted_at IS NULL").
 		Where("template_name like ?", "%"+search+"%").
 		OrderBy(byorder).
@@ -81,7 +82,7 @@ func GetTicketTemplateList(limit int, page int, search string, order string) []*
 
 func GetTicketTemplateTotal(search string) int64 {
 	template := new(TicketTemplate)
-	total, err := Dorm.Where("deleted_at IS NULL").And("template_name like ?", "%"+search+"%").Count(template)
+	total, err := global.Dorm.Where("deleted_at IS NULL").And("template_name like ?", "%"+search+"%").Count(template)
 	if err != nil {
 		return 0
 	}
@@ -89,17 +90,17 @@ func GetTicketTemplateTotal(search string) int64 {
 }
 
 func AddTicketTemplate(template *TicketTemplate) error {
-	_, err := Dorm.Insert(template)
+	_, err := global.Dorm.Insert(template)
 	return err
 }
 
 func EditTicketTemplate(template *TicketTemplate) error {
-	_, err := Dorm.ID(template.ID).Where("deleted_at IS NULL").Update(template)
+	_, err := global.Dorm.ID(template.ID).Where("deleted_at IS NULL").Update(template)
 	return err
 }
 
 func DelTicketTemplate(id uint64) int {
 	deletedAt := time.Now()
-	outnum, _ := Dorm.ID(id).Where("deleted_at IS NULL").Cols("deleted_at").Update(&TicketTemplate{DeletedAt: &deletedAt})
+	outnum, _ := global.Dorm.ID(id).Where("deleted_at IS NULL").Cols("deleted_at").Update(&TicketTemplate{DeletedAt: &deletedAt})
 	return int(outnum)
 }

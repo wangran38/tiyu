@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strconv"
 	"time"
+	"tiyu/global"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -60,7 +61,7 @@ func (AdminGroup) TableName() string {
 // 根据用户名密码查询用户
 func SelectUserByUserName(userName string) (*Admin, error) {
 	a := new(Admin)
-	has, err := Dorm.Where("username = ?", userName).Get(a)
+	has, err := global.Dorm.Where("username = ?", userName).Get(a)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +75,7 @@ func SelectUserByUserName(userName string) (*Admin, error) {
 func SelectAdminById(Id string) (*Admin, error) {
 	a := new(Admin)
 	id, _ := strconv.ParseInt(Id, 10, 64)
-	has, err := Dorm.Where("id = ?", id).Get(a)
+	has, err := global.Dorm.Where("id = ?", id).Get(a)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +88,7 @@ func SelectAdminById(Id string) (*Admin, error) {
 // 根据用户 id (int64类型) 查询用户 (新增：供编辑用户时校验使用)
 func SelectUserById(uid int64) (*Admin, error) {
 	a := new(Admin)
-	has, err := Dorm.Where("id = ?", uid).Get(a)
+	has, err := global.Dorm.Where("id = ?", uid).Get(a)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +100,7 @@ func SelectUserById(uid int64) (*Admin, error) {
 
 // 添加管理员用户
 func AddAdmin(a *Admin) error {
-	_, err := Dorm.Insert(a)
+	_, err := global.Dorm.Insert(a)
 	return err
 }
 
@@ -118,7 +119,7 @@ func GetUserList(limit int, pagesize int, search string, order string) []*Adminj
 	}
 
 	// 将别名直接写成与结构体字段名一致
-	query := Dorm.Table("admin").Alias("a").
+	query := global.Dorm.Table("admin").Alias("a").
 		Select("a.id AS id, ac.gid AS gid, a.username AS username, a.nickname AS nickname, a.avatar AS avatar, g.name AS groupname").
 		Join("INNER", []string{"auth_group_access", "ac"}, "ac.uid = a.id").
 		Join("INNER", []string{"auth_group", "g"}, "g.id = ac.gid")
@@ -137,12 +138,12 @@ func GetUsertotal(search string) int64 {
 	var num int64 = 0
 	a := new(Admin)
 	if search != "" {
-		total, err := Dorm.Cols("id", "username").Where("username like ?", "%"+search+"%").Count(a)
+		total, err := global.Dorm.Cols("id", "username").Where("username like ?", "%"+search+"%").Count(a)
 		if err == nil {
 			num = total
 		}
 	} else {
-		total, err := Dorm.Cols("id", "username").Count(a)
+		total, err := global.Dorm.Cols("id", "username").Count(a)
 		if err == nil {
 			num = total
 		}
@@ -154,7 +155,7 @@ func GetUsertotal(search string) int64 {
 
 // UpdateAdminWithGroup 在事务中一并更新 admin 表数据和组别映射 auth_group_access 表
 func UpdateAdminWithGroup(uid int64, username string, groupID int64) error {
-	session := Dorm.NewSession()
+	session := global.Dorm.NewSession()
 	defer session.Close()
 
 	if err := session.Begin(); err != nil {
@@ -199,13 +200,13 @@ func UpdateAdminWithGroup(uid int64, username string, groupID int64) error {
 // UpdateAdminGroup 单独修改组别关联的方法
 // func UpdateAdminGroup(uid int64, gid int64) error {
 // 	access := &Authaccess{Gid: gid}
-// 	affected, err := Dorm.Where("uid = ?", uid).Update(access)
+// 	affected, err := global..Where("uid = ?", uid).Update(access)
 // 	if err != nil {
 // 		return err
 // 	}
 // 	if affected == 0 {
 // 		access.Uid = uid
-// 		_, err = Dorm.Insert(access)
+// 		_, err = global..Insert(access)
 // 	}
 // 	return err
 // }
@@ -217,13 +218,13 @@ func UpdateAdminWithGroup(uid int64, username string, groupID int64) error {
 // 		Salt:     salt,
 // 		Updated:  time.Now(),
 // 	}
-// 	_, err := Dorm.Where("id = ?", uid).Cols("password", "salt", "updated").Update(admin)
+// 	_, err := global..Where("id = ?", uid).Cols("password", "salt", "updated").Update(admin)
 // 	return err
 // }
 
 // DeleteAdminWithAccess 根据用户 ID 删除用户及对应的组别关联 (带事务)
 func DeleteAdminWithAccess(uid int64) error {
-	session := Dorm.NewSession()
+	session := global.Dorm.NewSession()
 	defer session.Close()
 
 	if err := session.Begin(); err != nil {

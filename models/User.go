@@ -2,6 +2,7 @@ package models
 
 import (
 	"time"
+	"tiyu/global"
 )
 
 // User 会员表（前台用户，区别于后台 admin 表）
@@ -43,7 +44,7 @@ func GetMemberList(limit int, page int, search *User, order string) []*User {
 		byorder = "id DESC"
 	}
 	listdata := []*User{}
-	session := Dorm.Table("users")
+	session := global.Dorm.Table("users")
 	if search.Id > 0 {
 		session = session.And("id = ?", search.Id)
 	}
@@ -64,7 +65,7 @@ func GetMemberList(limit int, page int, search *User, order string) []*User {
 }
 
 func GetMemberTotal(search *User) int64 {
-	session := Dorm.Table("users")
+	session := global.Dorm.Table("users")
 	if search.Id > 0 {
 		session = session.And("id = ?", search.Id)
 	}
@@ -89,27 +90,27 @@ func GetMemberTotal(search *User) int64 {
 
 // 新增
 func AddMember(a *User) error {
-	_, err := Dorm.Insert(a)
+	_, err := global.Dorm.Insert(a)
 	return err
 }
 
 // 修改
 // 修改会员信息
 func EditMember(a *User) error {
-	_, err := Dorm.ID(a.Id).AllCols().Update(a)
+	_, err := global.Dorm.ID(a.Id).AllCols().Update(a)
 	return err
 }
 
 // 删除
 func DelMember(id int64) int {
-	outnum, _ := Dorm.ID(id).Delete(new(User))
+	outnum, _ := global.Dorm.ID(id).Delete(new(User))
 	return int(outnum)
 }
 
 // 根据用户名查询（登录校验）
 func SelectMemberByUsername(username string) (*User, error) {
 	u := new(User)
-	has, err := Dorm.Where("username = ?", username).Get(u)
+	has, err := global.Dorm.Where("username = ?", username).Get(u)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +123,7 @@ func SelectMemberByUsername(username string) (*User, error) {
 // 根据 ID 查询（积分/等级调整用）
 func SelectMemberById(id int64) (*User, error) {
 	u := new(User)
-	has, err := Dorm.ID(id).Get(u)
+	has, err := global.Dorm.ID(id).Get(u)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +137,7 @@ func SelectMemberById(id int64) (*User, error) {
 func FindOrCreateUserByMobile(mobile string, nickname string) (*User, error) {
 	u := new(User)
 	// 1. 查询手机号是否存在
-	has, err := Dorm.Where("mobile = ?", mobile).Get(u)
+	has, err := global.Dorm.Where("mobile = ?", mobile).Get(u)
 	if err != nil {
 		return nil, err
 	}
@@ -158,13 +159,13 @@ func FindOrCreateUserByMobile(mobile string, nickname string) (*User, error) {
 		Mobile:   mobile,
 		Username: mobile, // 默认用户名设置为手机号
 		Nickname: nickname,
-		Status:   "normal", // 注意：结构体中 Status 为 string 类型，需填 'nDormal'
+		Status:   "normal", // 注意：结构体中 Status 为 string 类型，需填 'nglobal.Dormal'
 		Point:    0,
 		Level:    1,
 	}
 
 	// 4. 插入数据库
-	_, err = Dorm.Insert(newUser)
+	_, err = global.Dorm.Insert(newUser)
 	if err != nil {
 		return nil, err
 	}

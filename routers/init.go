@@ -112,12 +112,12 @@ func init() {
 		apiGroup.POST("/send-sms", RateLimitMiddleware(3, 1*time.Minute), api.SendLoginSms)
 
 		// 2. 手机号 + 验证码 快捷登录/自动注册接口
-		apiGroup.POST("/quick-login", api.QuickLoginByPhone)
-		apiGroup.GET("/test-qwen-ocr", api.TestQwenOCR)
-		apiGroup.POST("/public/upload-images", api.PublicUploadImagesHandler)
-		apiGroup.POST("/public/recognize-ticket", api.RecognizeTicketByURLHandler)
-		apiGroup.POST("/upload-qwen-ocr", api.UploadQwenOCR)
-		apiGroup.POST("/adjustuserlevel", controllers.AdjustUserLevel)
+		apiGroup.POST("/quick-login", RateLimitMiddleware(3, 1*time.Minute), api.QuickLoginByPhone)
+		apiGroup.GET("/test-qwen-ocr", RateLimitMiddleware(3, 1*time.Minute), api.TestQwenOCR)
+		apiGroup.POST("/public/upload-images", RateLimitMiddleware(3, 1*time.Minute), api.PublicUploadImagesHandler)
+		apiGroup.POST("/public/recognize-ticket", RateLimitMiddleware(3, 1*time.Minute), api.RecognizeTicketByURLHandler)
+		apiGroup.POST("/upload-qwen-ocr", RateLimitMiddleware(3, 1*time.Minute), api.UploadQwenOCR)
+		apiGroup.POST("/adjustuserlevel", RateLimitMiddleware(3, 1*time.Minute), controllers.AdjustUserLevel)
 
 		// 跨系统单点登录（SSO 免登录）：挂载防刷中间件 (1分钟最多5次)
 		apiGroup.POST("/sso-login", RateLimitMiddleware(5, 1*time.Minute), controllers.SSOLogin)
@@ -154,6 +154,15 @@ func init() {
 		apiGroup.POST("/shops", api.GetShopList)
 		// 前台指定店铺的有效优惠券列表
 		apiGroup.POST("/shop/coupons", api.GetCouponListByShopIDHandler)
+		// 公开的商家团购商品列表：根据商家ID查看已上架商品，无需登录
+		apiGroup.GET("/shop/goods", api.GetPublicShopGoodsListHandler)
+		apiGroup.POST("/shop/goods", api.GetPublicShopGoodsListHandler)
+		// 公开的团购商品详情：C 端商品详情页，无需登录（只返回已上架商品）
+		apiGroup.GET("/shop/goods/detail", api.GetPublicGoodsDetailHandler)
+		apiGroup.POST("/shop/goods/detail", api.GetPublicGoodsDetailHandler)
+		// 公开的商家详情：C 端商家主页，无需登录（已过滤敏感经营数据）
+		apiGroup.GET("/shop/detail", api.GetPublicShopDetailHandler)
+		apiGroup.POST("/shop/detail", api.GetPublicShopDetailHandler)
 		// 新增：受 pgtoken 保护的前台用户中心路由组 (/api/user)
 		// 👇 新增：AI票根核验与权益发放接口
 		apiGroup.POST("/ticket/verify", utils.UserJWTAuth(), api.VerifyTicketHandler)
@@ -168,10 +177,13 @@ func init() {
 			// 使用会员票根兑换优惠券
 			userGroup.POST("/ticket/redeem-coupon", api.RedeemMemberTicketHandler)
 			// 会员进入商户详情后提交订单
-			userGroup.POST("/order/create", api.CreateOrderHandler)
+			userGroup.POST("/order/create", api.CreateUnifiedOrderHandler)
 			// 会员“我的订单”列表
 			userGroup.POST("/order/list", api.GetMyOrderListHandler)
-
+			// 会员“我的优惠券”列表（连表票根，展示兑换记录）
+			userGroup.POST("/coupon/list", api.GetMyCouponListHandler)
+			// 会员修改订单支付方式路由
+			userGroup.POST("/order/update-pay-type", api.UpdateOrderPayTypeHandler)
 			// 示例接口：修改个人资料
 			// userGroup.POST("/profile/update", api.UpdateUserProfile)
 			// 👇 商家申请相关 API (统一使用 POST)
@@ -185,9 +197,18 @@ func init() {
 			// 👇 商家优惠券
 			userGroup.POST("/shop/coupon/list", api.GetCouponListHandler)
 			userGroup.POST("/shop/coupon/add", api.AddCouponHandler)
-			userGroup.POST("/shop/coupon/edit", api.EditCouponHandler) // 新增编辑优惠券接口
+			userGroup.POST("/shop/coupon/edit", api.EditCouponHandler)      // 新增编辑优惠券接口
+			userGroup.POST("/shop/order/list", api.GetShopOrderListHandler) // 新增商家查看订单列表接口
+			// 🆕 新增：商家核销订单/优惠券接口
+			userGroup.POST("/shop/order/verify", api.VerifyShopOrderHandler)
 			// 👇 新增：AI票根核验与权益发放接口
+			// 👇 新增：创建带商品/套餐的订单接口（线上支付 / 当面核销付）
 
+			// 👇 商家团购商品
+			userGroup.POST("/shop/goods/add", RateLimitMiddleware(3, 1*time.Minute), api.AddGoodsProductHandler) // 商家添加团购商品
+			userGroup.POST("/shop/goods/list", api.GetGoodsProductListHandler)                                   // 商家查看自己的团购商品列表
+			userGroup.POST("/shop/goods/detail", api.GetGoodsProductDetailHandler)                               // 商家获取商品详情（编辑回显，含附表）
+			userGroup.POST("/shop/goods/edit", api.EditGoodsProductHandler)                                      // 商家编辑团购商品
 		}
 	}
 
@@ -248,19 +269,22 @@ func init() {
 		admin.POST("/addshop", controllers.AddShop)
 		admin.POST("/editshop", controllers.EditShop)
 		admin.POST("/delshop", controllers.DelShop)
-
+		//赛事活动
 		admin.POST("/geteventlist", controllers.GetEventlist)
 		admin.POST("/addevent", controllers.AddEvent)
 		admin.POST("/editevent", controllers.EditEvent)
 		admin.POST("/delevent", controllers.DelEvent)
+		//票根模版
 		admin.POST("/gettickettemplatelist", controllers.GetTicketTemplatelist)
 		admin.POST("/addtickettemplate", controllers.AddTicketTemplate)
 		admin.POST("/edittickettemplate", controllers.EditTicketTemplate)
 		admin.POST("/deltickettemplate", controllers.DelTicketTemplate)
 		admin.POST("/getticketclaimlist", controllers.GetTicketClaimlist)
+		//上传的票根记录，留用不作废
 		admin.POST("/recognizeticket", controllers.RecognizeTicket)
 		admin.POST("/getticketrecognitionlist", controllers.GetTicketRecognitionlist)
 		admin.POST("/getticketfraudlist", controllers.GetTicketFraudlist)
+		//用户列表和用户流水
 		admin.POST("/getuserlist", controllers.GetUserlist)
 		admin.POST("/adduser", controllers.AddUser)
 		admin.POST("/edituser", controllers.EditUser)
@@ -276,6 +300,12 @@ func init() {
 		admin.POST("/updatestorageconfig", controllers.UpdateStorageConfig)
 		admin.POST("/deletestorageconfig", controllers.DeleteStorageConfig)
 		admin.POST("/setdefaultstorageconfig", controllers.SetDefaultStorageConfig)
+		// 票根记录列表（含分页、兑换时间段/创建时间段过滤）
+		admin.POST("/getmemberticketlist", controllers.GetMemberTicketListHandler)
+		// 订单列表和相关管理路由
+		admin.POST("/getorderlist", controllers.GetOrderList)
+		// 商家商品管理（团购商品分页列表等）
+		admin.POST("/getgoodsproductlist", controllers.GetAdminGoodsProductListHandler)
 		// 新增：上传图片到默认云存储接口（自动带 JWT 鉴权保护）
 		admin.POST("/upload", controllers.UploadImageHandler)
 	}

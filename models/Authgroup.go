@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"tiyu/global"
 )
 
 // Authgroup 角色组表模型
@@ -45,7 +46,7 @@ func GetGroupTree() ([]*AuthGroupTreeResponse, error) {
 
 	// 修复1：去掉 status = 1 的强行限制（或者包含 status = 0），保证查出已有组别
 	// 如果你后期有软删除或禁用状态，可以去掉 Where 条件，或者根据实际情况查询
-	err := Dorm.OrderBy("id ASC").Find(&list)
+	err := global.Dorm.OrderBy("id ASC").Find(&list)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +82,7 @@ func buildTree(list []*Authgroup, pid int64) []*AuthGroupTreeResponse {
 // SelectGidRule 根据组别 ID 获取组别和 Rules 权限
 func SelectGidRule(id int64) (*Authgroup, error) {
 	a := new(Authgroup)
-	has, err := Dorm.Where("id = ?", id).Get(a)
+	has, err := global.Dorm.Where("id = ?", id).Get(a)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +96,7 @@ func SelectGidRule(id int64) (*Authgroup, error) {
 func Addgroup(a *Authgroup) error {
 	a.Created = time.Now().Unix()
 	a.Updated = time.Now().Unix()
-	_, err := Dorm.Insert(a)
+	_, err := global.Dorm.Insert(a)
 	return err
 }
 
@@ -103,14 +104,14 @@ func Addgroup(a *Authgroup) error {
 func Editgroup(a *Authgroup) error {
 	a.Updated = time.Now().Unix()
 	// 显式指定需要更新的列，防止零值被忽略
-	_, err := Dorm.ID(a.Id).Cols("pid", "name", "rules", "status", "updatetime").Update(a)
+	_, err := global.Dorm.ID(a.Id).Cols("pid", "name", "rules", "status", "updatetime").Update(a)
 	return err
 }
 
 // Getgrouptotal 获取组别总数
 func Getgrouptotal(search string) int64 {
 	a := new(Authgroup)
-	session := Dorm.NewSession()
+	session := global.Dorm.NewSession()
 	defer session.Close()
 
 	if search != "" {
@@ -142,7 +143,7 @@ func GetgroupList(limit int, page int, search string, order string) ([]*AuthGrou
 		byorder = "id DESC"
 	}
 
-	session := Dorm.NewSession()
+	session := global.Dorm.NewSession()
 	defer session.Close()
 
 	if search != "" {
@@ -178,7 +179,7 @@ func GetgroupList(limit int, page int, search string, order string) ([]*AuthGrou
 
 		var rules []Authrule
 		// 批量查询所有用到的权限菜单 title
-		if err := Dorm.In("id", ids).Cols("id", "title").Find(&rules); err == nil {
+		if err := global.Dorm.In("id", ids).Cols("id", "title").Find(&rules); err == nil {
 			for _, r := range rules {
 				idStr := strconv.FormatInt(r.Id, 10)
 				ruleTitleMap[idStr] = r.Title
@@ -214,7 +215,7 @@ func GetgroupList(limit int, page int, search string, order string) ([]*AuthGrou
 // UpdateAdminGroup 修改或新增用户的组别关联 (对应 auth_group_access 表)
 func UpdateAdminGroup(uid int64, gid int64) error {
 	access := new(Authaccess)
-	has, err := Dorm.Where("uid = ?", uid).Get(access)
+	has, err := global.Dorm.Where("uid = ?", uid).Get(access)
 	if err != nil {
 		return err
 	}
@@ -222,12 +223,12 @@ func UpdateAdminGroup(uid int64, gid int64) error {
 	if has {
 		// 存在记录，执行更新
 		access.Gid = gid
-		_, err = Dorm.Where("uid = ?", uid).Cols("gid").Update(access)
+		_, err = global.Dorm.Where("uid = ?", uid).Cols("gid").Update(access)
 	} else {
 		// 不存在记录，执行新增
 		access.Uid = uid
 		access.Gid = gid
-		_, err = Dorm.Insert(access)
+		_, err = global.Dorm.Insert(access)
 	}
 	return err
 }
@@ -239,14 +240,14 @@ func UpdateAdminPassword(uid int64, password string, salt string) error {
 		Salt:     salt,
 		Updated:  time.Now(),
 	}
-	_, err := Dorm.Where("id = ?", uid).Cols("password", "salt", "updated").Update(admin)
+	_, err := global.Dorm.Where("id = ?", uid).Cols("password", "salt", "updated").Update(admin)
 	return err
 }
 
 // Delgroup 根据 ID 删除 Authgroup 记录，并返回受影响行数及错误信息
 func Delgroup(id int64) (int, error) {
 	a := new(Authgroup)
-	outnum, err := Dorm.ID(id).Delete(a)
+	outnum, err := global.Dorm.ID(id).Delete(a)
 	if err != nil {
 		return 0, err
 	}

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"tiyu/global"
 	"tiyu/models"
 	"tiyu/utils"
 
@@ -51,7 +52,7 @@ func SubmitShopApplication(c *gin.Context) {
 
 	// 2. 检查用户当前是否有生效中或审核中的店铺
 	var existShop models.Shop
-	has, err := models.Dorm.Where("user_id = ?", userID).Get(&existShop)
+	has, err := global.Dorm.Where("user_id = ?", userID).Get(&existShop)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"code": 500, "msg": "数据库查询异常"})
 		return
@@ -98,7 +99,7 @@ func SubmitShopApplication(c *gin.Context) {
 	// 4. 如果是被驳回 (Status == 4) 则更新记录重新提交，否则新增
 	if has && existShop.Status == 4 {
 		shopData.ID = existShop.ID
-		_, err = models.Dorm.ID(existShop.ID).AllCols().Update(&shopData)
+		_, err = global.Dorm.ID(existShop.ID).AllCols().Update(&shopData)
 	} else {
 		err = models.AddShop(&shopData)
 	}
@@ -125,7 +126,7 @@ func GetShopApplicationStatus(c *gin.Context) {
 	userID := userIDVal.(int64)
 
 	var shop models.Shop
-	has, err := models.Dorm.Where("user_id = ?", userID).Get(&shop)
+	has, err := global.Dorm.Where("user_id = ?", userID).Get(&shop)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"code": 500, "msg": "查询状态失败"})
 		return

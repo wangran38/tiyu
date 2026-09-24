@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"tiyu/global"
 	// "reflect"
 )
 
@@ -55,7 +56,7 @@ func (m *Authrule) Treelist(pid int64) []*Treerule {
 	// menus := new(Authrule)
 	// 	var a []Authrule
 	var menus []Authrule
-	Dorm.Where("pid = ?", pid).Where("(deletetime = ? OR deletetime IS NULL)", 0).Find(&menus)
+	global.Dorm.Where("pid = ?", pid).Where("(deletetime = ? OR deletetime IS NULL)", 0).Find(&menus)
 	treelist := []*Treerule{}
 	for _, v := range menus {
 		child := v.Treelist(v.Id)
@@ -93,10 +94,10 @@ func (m *Authrule) Treelistgroup(pid int64, Rules string) []*Treerule {
 	//    a := new(Authrule)
 	// // 	var a []Authrule
 	var menus []*Authrule
-	ids := strings.Split(Rules, ",") //转成数组用Dorm in
+	ids := strings.Split(Rules, ",") //转成数组用global.Dorm in
 	// 	// ids:= string.Join(Rules,",")
 	// Where("pid = ?", v.Id)
-	Dorm.Where("pid = ?", pid).Where("status = ?", "normal").In("id", ids).Find(&menus)
+	global.Dorm.Where("pid = ?", pid).Where("status = ?", "normal").In("id", ids).Find(&menus)
 	treelist := []*Treerule{}
 	for _, v := range menus {
 		child := v.Treelistgroup(v.Id, Rules)
@@ -132,7 +133,7 @@ func GetRulesList(limit int, pagesize int, search *Authrule, order string) []*Au
 		limit = 6
 	}
 
-	session := Dorm.Table("auth_rule")
+	session := global.Dorm.Table("auth_rule")
 
 	// 关键修改：千万别漏了 search != nil 判断！
 	if search != nil {
@@ -161,7 +162,7 @@ func GetRulesList(limit int, pagesize int, search *Authrule, order string) []*Au
 
 func GetRulestotal(search *Authrule) int64 {
 	var num int64
-	session := Dorm.Table("auth_rule")
+	session := global.Dorm.Table("auth_rule")
 	if search.Id > 0 {
 		session = session.And("id", search.Id)
 	}
@@ -187,19 +188,19 @@ func GetRulestotal(search *Authrule) int64 {
 
 func DeleteRules(id int64) int {
 	a := new(Authrule)
-	outnum, _ := Dorm.ID(id).Delete(a)
+	outnum, _ := global.Dorm.ID(id).Delete(a)
 	return int(outnum)
 }
 
 // 新增权限规则
 func AddRules(a *Authrule) error {
-	_, err := Dorm.Insert(a)
+	_, err := global.Dorm.Insert(a)
 	return err
 }
 
 // 修改权限规则
 // 修改权限规则
 func EditRules(a *Authrule) error {
-	_, err := Dorm.ID(a.Id).AllCols().Update(a)
+	_, err := global.Dorm.ID(a.Id).AllCols().Update(a)
 	return err
 }

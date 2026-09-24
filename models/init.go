@@ -3,24 +3,26 @@ package models
 import (
 	_ "database/sql"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+	"tiyu/global"
+	"tiyu/models/shop"
+
+	// "tiyu/models/shop"
 
 	// _ "tiyu/db"
 	"github.com/cockroachdb/pebble"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/go-xorm/xorm"
+	"github.com/joho/godotenv"
 )
 
 // 读数据
-var Dorm *xorm.Engine
+// var Dorm *xorm.Engine
 
-// //写数据
-// var DB_Write *xDorm.Engine
-
-// var engine *xDorm.Engine
 var err error
 
 // PebbleDataDir 是票根 KV 数据库目录，可通过 TICKET_PEBBLE_PATH 覆盖。
@@ -38,62 +40,86 @@ var (
 )
 
 func init() {
-	//Dorm, err = xorm.NewEngine("mysql", "tiyu:aksaMDdERmZeMWCD@tcp(localhost:3306)/tiyu?charset=utf8mb4")
-	Dorm, err = xorm.NewEngine("mysql", "root:root@tcp(localhost:3306)/tiyu?charset=utf8mb4")
-	// engine, err := xDorm.NewEngine("mysql", "2343432:122222@/(http://127.0.0.1:3306)/tiyu?charset=utf8")
-	// db, err = xDorm.NewEngine("mysql", "username:password@tcp(host:3306)/dbname?charset=utf8")
-	if err != nil {
-		fmt.Println(err)
-		fmt.Println(err.Error())
-		return
-	} else {
-		Dorm.Ping()
-		//是否显示sql语句
-		Dorm.ShowSQL(true)
-		if err = Dorm.Sync2(
-			new(Admin),
-			new(User),
-			new(Authgroup),
-			new(Authrule),
-			new(Authaccess),
-			new(City),
-			new(SportsCategory),
-			new(UserFlow),
-			new(Event),
-			new(TicketTemplate),
-			new(TicketClaim),
-			new(MemberTicket),
-			new(PublicTicketRecognition),
-			new(Order),
-			new(ShopCategory),
-			new(Shop),
-			new(Coupon),
-			new(StorageConfig),
-			new(SmsConfig),
-		); err != nil {
-			fmt.Println(err)
-		} else {
-			// Dorm.ShowWarn(true)
-			// engine.ShowWarn(true)
-			fmt.Print("自动生成表成功！")
-		}
-
+	// 尝试加载根目录下的 .env 文件
+	if err := godotenv.Load(); err != nil {
+		log.Println("Notice: No .env file found, relying on system environment variables.")
 	}
-	Dorm.SetMaxOpenConns(50)
+
+	// 从环境变量读取 MySQL 配置，如果未找到则使用默认值
+	dbUser := getEnv("DB_USER", "root")
+	dbPass := getEnv("DB_PASS", "root")
+	dbHost := getEnv("DB_HOST", "localhost")
+	dbPort := getEnv("DB_PORT", "3306")
+	dbName := getEnv("DB_NAME", "tiyu")
+
+	// 拼接 DSN 连接串
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4", dbUser, dbPass, dbHost, dbPort, dbName)
+
+	global.Dorm, err = xorm.NewEngine("mysql", dsn)
+	if err != nil {
+		fmt.Println("Database connection error:", err)
+		return
+	}
+
+	if err = global.Dorm.Ping(); err != nil {
+		fmt.Println("Database ping error:", err)
+		return
+	}
+
+	// 是否显示sql语句
+	global.Dorm.ShowSQL(true)
+	if err = global.Dorm.Sync2(
+		new(Admin),
+		new(User),
+		new(Authgroup),
+		new(Authrule),
+		new(Authaccess),
+		new(City),
+		new(SportsCategory),
+		new(UserFlow),
+		new(Event),
+		new(TicketTemplate),
+		new(TicketClaim),
+		new(MemberTicket),
+		new(PublicTicketRecognition),
+		new(Order),
+		new(ShopCategory),
+		new(Shop),
+		new(Coupon),
+		new(StorageConfig),
+		new(SmsConfig),
+		// ---- 本地生活/商家团购（shop包） ----
+		new(shop.GoodsProduct),
+		new(shop.GoodsSku),
+		new(shop.GoodsItem),
+		new(shop.GoodsRule),
+		new(shop.GoodsTicketDiscount),
+		new(shop.GoodsDailyCalendar),
+		new(OrderItem),
+	); err != nil {
+		fmt.Println("Sync table error:", err)
+	} else {
+		fmt.Print("自动生成表成功！")
+	}
+
+	global.Dorm.SetMaxOpenConns(50)
 	// 设置连接池的空闲数大小
-	Dorm.SetMaxIdleConns(5)
-	// 设置空闲连接最大时长
-	// engine.SetConnMaxIdleTime(600) xDorm没有这个功能
+	global.Dorm.SetMaxIdleConns(5)
 	// 设置连接最大存活时长，必须小于mysql的wait_timeout
-	// mysql wait_timeout单位是s，time.Duration 默认是纳秒，后面*1000000000，转化成s
-	// 设置为4h
-	Dorm.SetConnMaxLifetime(59 * time.Second)
-	// fmt.Println(err)
+	global.Dorm.SetConnMaxLifetime(59 * time.Second)
+}
+
+// 辅助函数：获取环境变量，带默认值
+func getEnv(key, fallback string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return fallback
 }
 
 // GetDorm 获取数据库引擎（供脚本使用）
 func GetDorm() *xorm.Engine {
-	return Dorm
+	return global.Dorm
 }
 
 // GetPebbleDB 获取票根 Pebble KV 连接，首次调用时自动打开。
