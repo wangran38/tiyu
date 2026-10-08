@@ -176,53 +176,29 @@ func AddShop(c *gin.Context) {
 
 // EditShop 编辑商家
 func EditShop(c *gin.Context) {
-	var req struct {
-		ID           int64   `json:"id"`
-		MerchantNo   string  `json:"merchant_no"`
-		Name         string  `json:"name"`
-		CategoryID   int64   `json:"category_id"`
-		CityID       int64   `json:"city_id"`
-		UserID       int64   `json:"user_id"`
-		Logo         string  `json:"logo"`
-		CoverImages  string  `json:"cover_images"`
-		ContactName  string  `json:"contact_name"`
-		ContactPhone string  `json:"contact_phone"`
-		ServicePhone string  `json:"service_phone"`
-		Description  string  `json:"description"`
-		Address      string  `json:"address"`
-		Longitude    float64 `json:"longitude"`
-		Latitude     float64 `json:"latitude"`
-		Status       int8    `json:"status"`
-	}
+	// 1. 直接定义模型对象
+	var shop models.Shop
 
-	if err := c.ShouldBindJSON(&req); err != nil || req.ID <= 0 {
+	// 2. 绑定 JSON 参数
+	if err := c.ShouldBindJSON(&shop); err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"code": 400,
-			"msg":  "参数解析失败或ID不能为空",
+			"msg":  "参数解析失败：" + err.Error(),
 		})
 		return
 	}
 
-	shop := &models.Shop{
-		ID:           req.ID,
-		MerchantNo:   req.MerchantNo,
-		Name:         req.Name,
-		CategoryID:   req.CategoryID,
-		CityID:       req.CityID,
-		UserID:       req.UserID,
-		Logo:         req.Logo,
-		CoverImages:  req.CoverImages,
-		ContactName:  req.ContactName,
-		ContactPhone: req.ContactPhone,
-		ServicePhone: req.ServicePhone,
-		Description:  req.Description,
-		Address:      req.Address,
-		Longitude:    req.Longitude,
-		Latitude:     req.Latitude,
-		Status:       req.Status,
+	// 3. 校验 ID 规范
+	if shop.ID <= 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 400,
+			"msg":  "ID不能为空且必须大于0",
+		})
+		return
 	}
 
-	if err := models.UpdateShop(req.ID, shop); err != nil {
+	// 4. 调用更新逻辑
+	if err := models.UpdateShop(shop.ID, &shop); err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"code": 400,
 			"msg":  "更新失败：" + err.Error(),

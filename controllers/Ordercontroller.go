@@ -37,6 +37,7 @@ type OrderResponse struct {
 	models.Order // 嵌入原有的 Order 模型，直接继承所有底层字段
 
 	// --- 商户配置费率与计算字段 ---
+	Username               string  `json:"user_name"`                // 👈 添加此行
 	Shopname               string  `json:"shop_name"`                // 平台抽成比例(%)
 	CommissionRate         float64 `json:"commission_rate"`          // 平台抽成比例(%)
 	ServiceFee             float64 `json:"service_fee"`              // 固定服务费(元)
@@ -82,7 +83,7 @@ func GetOrderList(c *gin.Context) {
 	listdata := models.GetMemberOrderList(req.Limit, req.Page, modelReq, req.Order)
 
 	shopCache := make(map[int64]*models.Shop)
-
+	userCache := make(map[int64]*models.User) // 👈 新增用户缓存
 	var resultList []OrderResponse
 	for _, item := range listdata {
 		if item == nil {
@@ -108,7 +109,30 @@ func GetOrderList(c *gin.Context) {
 				transactionFeeRate = shop.TransactionFeeRate
 			}
 		}
+		// 2. 补充用户名称查询逻辑
+		// 2. 获取用户名称
+		var userName string = "—"
+		if item.UserID > 0 {
+			// 👈 将 item.UserID 显式转换为 int64
+			userID := int64(item.UserID)
 
+			user, exists := userCache[userID]
+			if !exists {
+				u, err := models.SelectMemberById(userID)
+				if err == nil && u != nil {
+					userCache[userID] = u
+					user = u
+				}
+			}
+
+			if user != nil {
+				if user.Nickname != "" {
+					userName = user.Nickname
+				} else if user.Username != "" {
+					userName = user.Username
+				}
+			}
+		}
 		payableAmount := item.PayableAmount
 		commissionAmount := payableAmount * (commissionRate / 100.0)
 		transactionFee := payableAmount * (transactionFeeRate / 100.0)
@@ -118,6 +142,7 @@ func GetOrderList(c *gin.Context) {
 		resp := OrderResponse{
 			Order:                  *item,
 			Shopname:               shopName,
+			Username:               userName, // 👈 赋值用户名称
 			CommissionRate:         commissionRate,
 			ServiceFee:             serviceFee,
 			TransactionFeeRate:     transactionFeeRate,
